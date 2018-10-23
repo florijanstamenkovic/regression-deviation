@@ -1,6 +1,6 @@
 import numpy as np
 import sklearn.linear_model
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 
 
 def concat(ftrs, prediction):
@@ -9,6 +9,37 @@ def concat(ftrs, prediction):
 
 def error(prediction, y):
     return (prediction - y).abs()
+
+
+# TODO see about bin medians or whatever
+def error_at_retrieval(error, confidence, points=21):
+    space = np.linspace(0, 1, points)
+    retrieval = [(confidence >= c).mean() for c in space]
+
+    errors = []
+    for point in space:
+        conf_thresh = np.interp(point, space, retrieval)
+        mask = confidence >= conf_thresh
+        errors.append(0 if mask.sum() == 0 else error[mask].mean())
+
+    return np.array(errors), space
+
+
+class RegressionConfidenceScorer():
+
+    def __init__(self):
+        pass
+
+    def __call__(self, estimator, X,  y):
+        prediction = estimator.predict(X)
+        if isinstance(estimator, GridSearchCV):
+            confidence = estimator.best_estimator_.predict_confidence(X, prediction)
+        else:
+            confidence = estimator.predict_confidence(X, prediction)
+
+        errors, space = error_at_retrieval(error(prediction, y), confidence)
+        result = sum(e * r for e, r in zip(errors, space)) / len(space)
+        return -result
 
 
 class ConfidenceRegressor():
