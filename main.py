@@ -2,6 +2,7 @@
 
 
 import logging
+import os
 
 import numpy as np
 import sklearn
@@ -11,6 +12,10 @@ import sklearn.ensemble
 import sklearn.linear_model
 from sklearn.model_selection import train_test_split, GridSearchCV
 
+import matplotlib
+matplotlib.use('Agg')  # ensure headless operation
+from matplotlib import pyplot as plt
+
 import data
 # TODO replace
 from models import *
@@ -19,33 +24,55 @@ import models
 from sklearn.model_selection import (GridSearchCV, train_test_split, KFold)
 
 
+OUTPUT_DIR = "output"
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+def plot_error_at_retrieval(errors, confidences, model_name):
+    errors, space = error_at_retrieval(
+        errors, confidences, reduced=False)
+    plt.figure(figsize=(12, 9))
+    plt.title("Error at retrieval: " + model_name)
+    plt.plot(space, errors)
+    plt.ylabel("Error")
+    plt.xlabel("Retrieval")
+    plt.grid(alpha=0.5, linestyle=':')
+    plt.savefig(os.path.join(OUTPUT_DIR, "error_at_retrieval_%s.pdf" %
+                             model_name), bbox_inches='tight')
+    plt.close()
+
+
 def main():
     logging.basicConfig(level=logging.INFO)
 
     X, y = data.preprocess(data.load())
 
     mods = (
-        (ConfidenceRegressor, {
+        (ConfidenceRegressor, "dummy_model",
+         {
             "regression_cls": [sklearn.dummy.DummyRegressor],
             "reg_conf_split": [0.5],
             "confidence_cls": [sklearn.dummy.DummyRegressor],
         }),
-        # (ConfidenceRegressor, {
-        #     "regression_cls": [sklearn.linear_model.Ridge],
-        #     "regression__alpha": [0, 1, 10, 100],
-        #     "reg_conf_split": [0.5],
-        #     "confidence_cls": [sklearn.linear_model.Ridge],
-        #     "confidence__alpha": [0, 1, 10, 100],
-        # }),
-        (ConfidenceRegressor, {
+        (ConfidenceRegressor, "ridge_ridge",
+         {
+            "regression_cls": [sklearn.linear_model.Ridge],
+            "regression__alpha": [0, 1, 10, 100],
+            "reg_conf_split": [0.5],
+            "confidence_cls": [sklearn.linear_model.Ridge],
+            "confidence__alpha": [0, 1, 10, 100],
+        }),
+        (ConfidenceRegressor, "rf_rf",
+         {
             "regression_cls": [sklearn.ensemble.RandomForestRegressor],
             "reg_conf_split": [0.5],
             "confidence_cls": [sklearn.ensemble.RandomForestRegressor],
         }),
     )
 
-    for model_cls, params in mods:
-        logging.info("Fitting model %s", model_cls.__name__)
+    for model_cls, model_name, params in mods:
+        logging.info("Fitting model %s", model_name)
 
         grid_search = GridSearchCV(
             model_cls(), params,
@@ -63,9 +90,10 @@ def main():
         predictions = np.concatenate(predictions)
         confidences = np.concatenate(confidences)
 
-        score = error_at_retrieval(error(predictions, y), confidences, 51)
-        logging.info("Model: %s, Score: %.2f", model_cls.__name__,
-                     error_at_retrieval(error(predictions, y), confidences))
+        errors = error(predictions, y)
+        logging.info("Model: %s, Score: %.2f", model_name,
+                     error_at_retrieval(errors, confidences))
+        plot_error_at_retrieval(errors, confidences, model_name)
 
 
 if __name__ == "__main__":

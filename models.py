@@ -12,15 +12,21 @@ def error(prediction, y):
 
 
 # TODO see about bin medians or whatever
-def error_at_retrieval(error, confidence, reduced=True, points=31):
+def error_at_retrieval(error, confidence, reduced=True, points=51):
+    assert(confidence.min() >= 0 and confidence.max() <= 1)
+
     space = np.linspace(0, 1, points)
     retrieval = [(confidence >= c).mean() for c in space]
 
+    # Flip coordinates as retrieval must be increasing for np.interp
+    space = space[::-1]
+    retrieval = retrieval[::-1]
+
     errors = []
     for point in space:
-        conf_thresh = np.interp(point, space, retrieval)
+        conf_thresh = np.interp(point, retrieval, space)
         mask = confidence >= conf_thresh
-        errors.append(0 if mask.sum() == 0 else error[mask].mean())
+        errors.append(error.max() if mask.sum() == 0 else error[mask].mean())
 
     if not reduced:
         return np.array(errors), space
