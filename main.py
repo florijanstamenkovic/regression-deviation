@@ -45,15 +45,27 @@ def main():
     )
 
     for model_cls, params in mods:
+        logging.info("Fitting model %s", model_cls.__name__)
+
         grid_search = GridSearchCV(
             model_cls(), params,
             scoring=RegressionConfidenceScorer(), cv=5, n_jobs=-1)
 
-        logging.info("Fitting model %s", model_cls.__name__)
-        score = sklearn.model_selection.cross_val_score(
-            grid_search, X, y, scoring=RegressionConfidenceScorer(), cv=5)
+        # Calc error again as it's more stable with more points.
+        predictions, confidences = [], []
+        for train_index, test_index in KFold(5).split(X):
+            grid_search.fit(X[train_index], y[train_index])
+            prediction = grid_search.predict(X[test_index])
+            predictions.append(prediction)
+            confidences.append(grid_search.best_estimator_.predict_confidence(
+                X[test_index], prediction))
 
-        logging.info("Model: %s, Score: %.2f", model_cls.__name__, -score.mean())
+        predictions = np.concatenate(predictions)
+        confidences = np.concatenate(confidences)
+
+        score = error_at_retrieval(error(predictions, y), confidences, 51)
+        logging.info("Model: %s, Score: %.2f", model_cls.__name__,
+                     error_at_retrieval(error(predictions, y), confidences))
 
 
 if __name__ == "__main__":

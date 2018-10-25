@@ -8,11 +8,11 @@ def concat(ftrs, prediction):
 
 
 def error(prediction, y):
-    return (prediction - y).abs()
+    return np.abs(prediction - y)
 
 
 # TODO see about bin medians or whatever
-def error_at_retrieval(error, confidence, points=21):
+def error_at_retrieval(error, confidence, reduced=True, points=31):
     space = np.linspace(0, 1, points)
     retrieval = [(confidence >= c).mean() for c in space]
 
@@ -22,7 +22,10 @@ def error_at_retrieval(error, confidence, points=21):
         mask = confidence >= conf_thresh
         errors.append(0 if mask.sum() == 0 else error[mask].mean())
 
-    return np.array(errors), space
+    if not reduced:
+        return np.array(errors), space
+
+    return sum(e * r for e, r in zip(errors, space)) / len(space)
 
 
 class RegressionConfidenceScorer():
@@ -37,9 +40,7 @@ class RegressionConfidenceScorer():
         else:
             confidence = estimator.predict_confidence(X, prediction)
 
-        errors, space = error_at_retrieval(error(prediction, y), confidence)
-        result = sum(e * r for e, r in zip(errors, space)) / len(space)
-        return -result
+        return -error_at_retrieval(error(prediction, y), confidence)
 
 
 class ConfidenceRegressor():

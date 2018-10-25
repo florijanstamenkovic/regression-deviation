@@ -47,7 +47,7 @@ def preprocess(df):
     target = df["cnt"]
     del df["cnt"]
 
-    return df, target
+    return df.values.astype(np.float32), target.values
 
 
 def cross_cor(df):
