@@ -1,6 +1,7 @@
 import numpy as np
 import sklearn.linear_model
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split, GridSearchCV, KFold
+from sklearn.gaussian_process import GaussianProcessRegressor
 
 
 def concat(ftrs, prediction):
@@ -90,6 +91,38 @@ class ConfidenceRegressor():
 
     def set_params(self, **params):
         self.params = params
+        return self
+
+    def get_params(self, deep=True):
+        return self.params
+
+
+class GaussianProcessEnsemble():
+
+    def __init__(self, **params):
+        self.count = 10
+        self.gps = [GaussianProcessRegressor() for _ in range(self.count)]
+        self.set_params(**params)
+
+    def fit(self, X, y):
+        fold = KFold(self.count)
+        for (X_fold, y_fold), gp in zip(fold.split(X, y), self.gps):
+            gp.fit(X_fold, y_fold)
+
+    def predict(self, X):
+        return np.mean(gp.predict(X) for gp in self.gps)
+
+    def predict_confidence(self, X, _):
+        predictions = [gp.predict(X, return_std=True) for gp in self.gps]
+        means, std = zip(*predictions)
+        raise Exception("Not yet implemented")
+
+        return self.gp.predict(X, return_std=True)[1]
+
+    def set_params(self, **params):
+        self.params = params
+        for gp in self.gps:
+            gp.set_params(**params)
         return self
 
     def get_params(self, deep=True):
