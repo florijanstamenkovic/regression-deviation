@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 
+from argparse import ArgumentParser
 import logging
 import os
 
@@ -10,7 +11,8 @@ import sklearn.datasets
 import sklearn.dummy
 import sklearn.ensemble
 import sklearn.linear_model
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import (train_test_split, GridSearchCV,
+                                     train_test_split, KFold)
 
 import matplotlib
 matplotlib.use('Agg')  # ensure headless operation
@@ -19,9 +21,7 @@ from matplotlib import pyplot as plt
 import data
 # TODO replace
 from models import *
-import models
 
-from sklearn.model_selection import (GridSearchCV, train_test_split, KFold)
 
 
 OUTPUT_DIR = "output"
@@ -42,36 +42,57 @@ def plot_error_at_retrieval(errors, confidences, model_name):
                              model_name), bbox_inches='tight')
     plt.close()
 
+MODELS = (
+    (ConfidenceRegressor, "dummy",
+     {
+        "regression_cls": [sklearn.dummy.DummyRegressor],
+        "reg_conf_split": [0.5],
+        "confidence_cls": [sklearn.dummy.DummyRegressor],
+    }),
+    (ConfidenceRegressor, "ridge_ridge",
+     {
+        "regression_cls": [sklearn.linear_model.Ridge],
+        "regression__alpha": [0, 1, 10, 100],
+        "reg_conf_split": [0.5],
+        "confidence_cls": [sklearn.linear_model.Ridge],
+        "confidence__alpha": [0, 1, 10, 100],
+    }),
+    (ConfidenceRegressor, "rf_rf",
+     {
+        "regression_cls": [sklearn.ensemble.RandomForestRegressor],
+        "regression__n_estimators": [100],
+        "reg_conf_split": [0.5],
+        "confidence_cls": [sklearn.ensemble.RandomForestRegressor],
+        "confidence__n_estimators": [100],
+    }),
+    (GaussianProcessEnsemble, "gaussian_process",
+     {
+    }),
+)
+
+
+def parse_args():
+    argp = ArgumentParser()
+    argp.add_argument(
+        "--model", default=None, choices=tuple(m[1] for m in MODELS),
+        nargs="+",
+        help="Force which model is evaluated. Default evaluates all.")
+    return argp.parse_args()
+
 
 def main():
+    args = parse_args()
+
     logging.basicConfig(level=logging.INFO)
 
     X, y = data.preprocess(data.load())
 
-    mods = (
-        (ConfidenceRegressor, "dummy_model",
-         {
-            "regression_cls": [sklearn.dummy.DummyRegressor],
-            "reg_conf_split": [0.5],
-            "confidence_cls": [sklearn.dummy.DummyRegressor],
-        }),
-        (ConfidenceRegressor, "ridge_ridge",
-         {
-            "regression_cls": [sklearn.linear_model.Ridge],
-            "regression__alpha": [0, 1, 10, 100],
-            "reg_conf_split": [0.5],
-            "confidence_cls": [sklearn.linear_model.Ridge],
-            "confidence__alpha": [0, 1, 10, 100],
-        }),
-        (ConfidenceRegressor, "rf_rf",
-         {
-            "regression_cls": [sklearn.ensemble.RandomForestRegressor],
-            "reg_conf_split": [0.5],
-            "confidence_cls": [sklearn.ensemble.RandomForestRegressor],
-        }),
-    )
+    if args.model is None:
+        models = MODELS
+    else:
+        models = [m for m in MODELS if m[1] in args.model]
 
-    for model_cls, model_name, params in mods:
+    for model_cls, model_name, params in models:
         logging.info("Fitting model %s", model_name)
 
         grid_search = GridSearchCV(
