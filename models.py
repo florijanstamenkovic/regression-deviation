@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import sklearn.linear_model
 from sklearn.model_selection import train_test_split, GridSearchCV, KFold
@@ -8,31 +10,16 @@ def concat(ftrs, prediction):
     return np.hstack((ftrs, prediction.reshape(-1, 1)))
 
 
-def error(prediction, y):
-    return np.abs(prediction - y)
+def normpdf(x, mean, stddev):
+    var = stddev ** 2
+    denom = (2 * math.pi * var) ** 0.5
+    num = np.exp(-((x - mean) ** 2 / (2 * var)))
+    return num / denom
 
 
-# TODO see about bin medians or whatever
-def error_at_retrieval(error, confidence, reduced=True, points=51):
-    assert(confidence.min() >= 0 and confidence.max() <= 1)
-
-    space = np.linspace(0, 1, points)
-    retrieval = [(confidence >= c).mean() for c in space]
-
-    # Flip coordinates as retrieval must be increasing for np.interp
-    space = space[::-1]
-    retrieval = retrieval[::-1]
-
-    errors = []
-    for point in space:
-        conf_thresh = np.interp(point, retrieval, space)
-        mask = confidence >= conf_thresh
-        errors.append(error.max() if mask.sum() == 0 else error[mask].mean())
-
-    if not reduced:
-        return np.array(errors), space
-
-    return sum(e * r for e, r in zip(errors, space)) / len(space)
+def log_prob(x, mean):
+    return -0.5 * (np.log(2 * math.pi) + 2 * np.log(1e-5 + np.abs(x - mean)) +
+                   1)
 
 
 class RegressionConfidenceScorer():
@@ -40,14 +27,15 @@ class RegressionConfidenceScorer():
     def __init__(self):
         pass
 
-    def __call__(self, estimator, X,  y):
+    def __call__(self, estimator, X, y):
         prediction = estimator.predict(X)
         if isinstance(estimator, GridSearchCV):
-            confidence = estimator.best_estimator_.predict_confidence(X, prediction)
+            stddev = estimator.best_estimator_.predict_stddev(
+                X, prediction)
         else:
-            confidence = estimator.predict_confidence(X, prediction)
+            stddev = estimator.predict_stddev(X, prediction)
 
-        return -error_at_retrieval(error(prediction, y), confidence)
+        return log_prob(prediction, y).mean()
 
 
 class ConfidenceRegressor():
@@ -68,26 +56,20 @@ class ConfidenceRegressor():
             **self._extract_params("regression__"))
         self.regression.fit(X_reg, y_reg)
 
-        self.confidence = params["confidence_cls"](
-            **self._extract_params("confidence__"))
+        self.stddev = params["stddev_cls"](
+            **self._extract_params("stddev__"))
 
-        # Fit confidence.
+        # Fit stddev.
         regression_pred = self.regression.predict(X_conf)
         ftrs = concat(X_conf, regression_pred)
-        # TODO make error a hyperparameter
-        self.confidence.fit(ftrs, error(regression_pred, y_conf))
-        prediction = self.confidence.predict(ftrs)
-        self.min_conf = prediction.min()
-        self.max_conf = prediction.max()
+        self.stddev.fit(ftrs, np.abs(regression_pred - y_conf))
 
     def predict(self, X):
         return self.regression.predict(X)
 
-    def predict_confidence(self, X, prediction):
+    def predict_stddev(self, X, prediction):
         ftrs = concat(X, prediction)
-        prediction = self.confidence.predict(ftrs)
-        prediction = (prediction - self.min_conf) / self.max_conf
-        return np.maximum(0, np.minimum(1, prediction))
+        return self.stddev.predict(ftrs)
 
     def set_params(self, **params):
         self.params = params
@@ -112,7 +94,7 @@ class GaussianProcessEnsemble():
     def predict(self, X):
         return np.mean(gp.predict(X) for gp in self.gps)
 
-    def predict_confidence(self, X, _):
+    def predict_stddev(self, X, _):
         predictions = [gp.predict(X, return_std=True) for gp in self.gps]
         means, std = zip(*predictions)
         raise Exception("Not yet implemented")
