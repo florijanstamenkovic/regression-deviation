@@ -88,18 +88,23 @@ class GaussianProcessEnsemble():
 
     def fit(self, X, y):
         fold = KFold(self.count)
-        for (X_fold, y_fold), gp in zip(fold.split(X, y), self.gps):
-            gp.fit(X_fold, y_fold)
+        for (_, fold), gp in zip(fold.split(X), self.gps):
+            gp.fit(X[fold], y[fold])
 
     def predict(self, X):
-        return np.mean(gp.predict(X) for gp in self.gps)
+        return np.mean([gp.predict(X) for gp in self.gps], axis=0)
 
     def predict_stddev(self, X, _):
         predictions = [gp.predict(X, return_std=True) for gp in self.gps]
-        means, std = zip(*predictions)
-        raise Exception("Not yet implemented")
+        mean, stddev = zip(*predictions)
 
-        return self.gp.predict(X, return_std=True)[1]
+        # Convert means and stds into (N_samples, ensemble_size)
+        # and weight them uniformly
+        mean = np.vstack(mean).T / self.count
+        stddev = np.vstack(stddev).T / self.count
+
+        return stddev.mean(axis=1) + np.power(mean, 2).mean(axis=1) - \
+            np.power(mean.mean(axis=1), 2)
 
     def set_params(self, **params):
         self.params = params
