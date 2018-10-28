@@ -83,12 +83,11 @@ class GaussianProcessEnsemble():
 
     @staticmethod
     def _make_gp():
-        kernel = kernels.ConstantKernel(1.0, (1e-3, 1e3)) * \
-            kernels.RBF(10, (1e-2, 1e2)) + kernels.WhiteKernel()
+        kernel = kernels.ConstantKernel() * kernels.RBF() + kernels.WhiteKernel()
         return GaussianProcessRegressor(kernel, normalize_y=True)
 
     def __init__(self, **params):
-        self.count = 30
+        self.count = 20
         self.gps = [GaussianProcessEnsemble._make_gp()
                     for _ in range(self.count)]
         self.set_params(**params)
