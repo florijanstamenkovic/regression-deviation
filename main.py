@@ -54,7 +54,11 @@ def parse_args():
         "--model", default=None, choices=tuple(m[1] for m in MODELS),
         nargs="+",
         help="Force which model is evaluated. Default evaluates all.")
-    argp.add_argument("--n-jobs", type=int, default=-1)
+    argp.add_argument("--n-jobs", type=int, default=-1,
+                      help="Number of jobs in cross validation. Default all "
+                      "CPUs.")
+    argp.add_argument("--limit-dataset", action="store_true",
+                      help="If the dataset should be reduced for debugging.")
     return argp.parse_args()
 
 
@@ -64,6 +68,9 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     X, y = data.preprocess(data.load())
+    if args.limit_dataset:
+        X = X[:500]
+        y = y[:500]
 
     if args.model is None:
         used_models = models.MODELS
