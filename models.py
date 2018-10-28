@@ -3,7 +3,7 @@ import math
 import numpy as np
 import sklearn.linear_model
 from sklearn.model_selection import train_test_split, GridSearchCV, KFold
-from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 
 
 def concat(ftrs, prediction):
@@ -81,9 +81,16 @@ class ConfidenceRegressor():
 
 class GaussianProcessEnsemble():
 
+    @staticmethod
+    def _make_gp():
+        kernel = kernels.ConstantKernel(1.0, (1e-3, 1e3)) * \
+            kernels.RBF(10, (1e-2, 1e2)) + kernels.WhiteKernel()
+        return GaussianProcessRegressor(kernel, normalize_y=True)
+
     def __init__(self, **params):
-        self.count = 10
-        self.gps = [GaussianProcessRegressor() for _ in range(self.count)]
+        self.count = 30
+        self.gps = [GaussianProcessEnsemble._make_gp()
+                    for _ in range(self.count)]
         self.set_params(**params)
 
     def fit(self, X, y):
