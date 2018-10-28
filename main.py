@@ -87,8 +87,12 @@ def main():
         # Calc error again as it's more stable with more points.
         predictions, stddevs = [], []
         for train_index, test_index in KFold(5).split(X):
-            grid_search.fit(X[train_index], y[train_index])
-            prediction = grid_search.predict(X[test_index])
+            # Transform the data
+            scaler = sklearn.preprocessing.StandardScaler()
+            X_train = scaler.fit_transform(X[train_index])
+            grid_search.fit(X_train, y[train_index])
+
+            prediction = grid_search.predict(scaler.transform(X[test_index]))
             predictions.append(prediction)
             stddevs.append(grid_search.best_estimator_.predict_stddev(
                 X[test_index], prediction))
