@@ -10,23 +10,28 @@ from urllib.request import urlretrieve
 import numpy as np
 import pandas as pd
 
-URL = "http://archive.ics.uci.edu/ml/machine-learning-databases/00275/Bike-Sharing-Dataset.zip"
-HOUR_DATA_PATH = "hour.csv"
+URL_BIKE= "http://archive.ics.uci.edu/ml/machine-learning-databases/00275/Bike-Sharing-Dataset.zip"
+FILENAME_BIKE = "hour.csv"
+
+URL_NEWS = "http://archive.ics.uci.edu/ml/machine-learning-databases/00332/OnlineNewsPopularity.zip"
+FILENAME_NEWS = "OnlineNewsPopularity.csv"
 
 
-def load():
-    if not os.path.exists(HOUR_DATA_PATH):
-        logging.info("Downloading file from: %s", URL)
-        filename, _ = urlretrieve(URL)
+def download_and_extract(url, source, target):
+        logging.info("Downloading file from: %s", url)
+        archive_filename, _ = urlretrieve(url)
         tmpdir = tempfile.mkdtemp()
-        with ZipFile(filename, "r") as zip_ref:
+        with ZipFile(archive_filename, "r") as zip_ref:
             zip_ref.extractall(tmpdir)
-        shutil.move(os.path.join(tmpdir, "hour.csv"), HOUR_DATA_PATH)
-
-    return pd.read_csv(HOUR_DATA_PATH, index_col=0)
+        shutil.move(os.path.join(tmpdir, source), target)
 
 
-def preprocess(df):
+def load_bike():
+    if not os.path.exists(FILENAME_BIKE):
+        download_and_extract(URL_BIKE, FILENAME_BIKE, FILENAME_BIKE)
+
+    df = pd.read_csv(FILENAME_BIKE, index_col=0)
+
     # Delete columns we won't use.
     to_delete = ["dteday", "yr", "mnth", "weekday", "atemp", "casual",
                  "registered"]
@@ -50,8 +55,16 @@ def preprocess(df):
     return df.values.astype(np.float32), target.values
 
 
-def cross_cor(df):
-    logging.info("Feature cross correlation:")
-    for ftr_a, ftr_b in itertools.combinations(df.columns, 2):
-        r = (np.corrcoef(df[ftr_a], df[ftr_b], rowvar=True))[0, 1]
-        logging.info("%s, %s - %.2f", ftr_a, ftr_b, r)
+def load_news():
+    if not os.path.exists(FILENAME_NEWS):
+        download_and_extract(URL_NEWS,
+                             os.path.join("OnlineNewsPopularity", FILENAME_NEWS),
+                             FILENAME_NEWS)
+    df = pd.read_csv(FILENAME_NEWS, skipinitialspace=True)
+    df = df.drop(["url", "timedelta"], axis=1)
+
+    # Extract the target column.
+    target = df["shares"]
+    del df["shares"]
+
+    return df.values.astype(np.float32), target.values
