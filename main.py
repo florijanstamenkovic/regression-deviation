@@ -45,6 +45,12 @@ MODELS = (
     (models.GaussianProcessEnsemble, "gaussian_process",
      {
      }),
+    (models.BayesianRidge, "bayesian_ridge",
+     {
+     }),
+    (models.TorchRegressor, "torch",
+     {
+     }),
 )
 
 
@@ -99,11 +105,12 @@ def main():
 
         predictions = np.concatenate(predictions)
         log_probs = models.log_prob(predictions, y)
+        maes = np.abs(predictions - y)
         stddevs = np.concatenate(stddevs)
 
         logging.info("Model: %s, MAE: %.2f, mean log-prob: %.2f",
-                     model_name, np.abs(predictions - y).mean(), log_probs.mean())
-        plot.plot_error_at_retrieval(log_probs, stddevs, model_name)
+                     model_name, maes.mean(), log_probs.mean())
+        plot.plot_error_at_retrieval(maes, stddevs, model_name)
 
 
 if __name__ == "__main__":
