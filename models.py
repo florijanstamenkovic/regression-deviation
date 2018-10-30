@@ -14,16 +14,12 @@ def concat(ftrs, prediction):
     return np.hstack((ftrs, prediction.reshape(-1, 1)))
 
 
-def normpdf(x, mean, stddev):
+def normpdf(mean, stddev, prediction, log):
     var = stddev ** 2
     denom = (2 * math.pi * var) ** 0.5
-    num = np.exp(-((x - mean) ** 2 / (2 * var)))
-    return num / denom
-
-
-def log_prob(x, mean):
-    return -0.5 * (np.log(2 * math.pi) + 2 * np.log(1e-5 + np.abs(x - mean)) +
-                   1)
+    num = np.exp(-((mean - prediction) ** 2 / (2 * var)))
+    prob = num / denom
+    return np.log(prob + 0.000001) if log else prob
 
 
 class RegressionConfidenceScorer():
@@ -39,7 +35,7 @@ class RegressionConfidenceScorer():
         else:
             stddev = estimator.predict_stddev(X, prediction)
 
-        return normpdf(y, prediction, stddev).mean()
+        return normpdf(y, stddev, prediction, True).mean()
 
 
 class ConfidenceRegressor():

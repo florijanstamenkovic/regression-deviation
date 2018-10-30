@@ -26,7 +26,7 @@ MODELS = (
          "reg_conf_split": [0.5],
          "stddev_cls": [sklearn.dummy.DummyRegressor],
      }),
-    (models.ConfidenceRegressor, "ridge_ridge",
+    (models.ConfidenceRegressor, "ridge",
      {
          "regression_cls": [sklearn.linear_model.Ridge],
          "regression__alpha": [0, 1, 10, 100],
@@ -34,7 +34,7 @@ MODELS = (
          "stddev_cls": [sklearn.linear_model.Ridge],
          "stddev__alpha": [0, 1, 10, 100],
      }),
-    (models.ConfidenceRegressor, "rf_rf",
+    (models.ConfidenceRegressor, "rf",
      {
          "regression_cls": [sklearn.ensemble.RandomForestRegressor],
          "regression__n_estimators": [100],
@@ -80,9 +80,6 @@ def main():
     else:
         X, y = data.load_news()
 
-    # Both datasets have log-normal target variables.
-    y = np.log(y)
-
     logging.info("Using the '%s' dataset, %d rows, %d features",
                  args.dataset, X.shape[0], X.shape[1])
 
@@ -117,10 +114,10 @@ def main():
                 X[test_index], prediction))
 
         predictions = np.concatenate(predictions)
-        log_probs = models.log_prob(predictions, y)
-        # Calulate MAE in the original space, not log space
-        maes = np.abs(np.exp(predictions) - np.exp(y))
         stddevs = np.concatenate(stddevs)
+        log_probs = models.normpdf(y, stddevs, predictions, True)
+        # Calulate MAE in the original space, not log space
+        maes = np.abs(predictions - y)
 
         logging.info("Model: %s, MAE: %.2f, mean log-prob: %.2f",
                      model_name, maes.mean(), log_probs.mean())
