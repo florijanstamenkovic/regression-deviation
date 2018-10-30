@@ -39,7 +39,7 @@ class RegressionConfidenceScorer():
         else:
             stddev = estimator.predict_stddev(X, prediction)
 
-        return log_prob(prediction, y).mean()
+        return normpdf(y, prediction, stddev).mean()
 
 
 class ConfidenceRegressor():

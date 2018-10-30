@@ -65,7 +65,7 @@ def parse_args():
                       "CPUs.")
     argp.add_argument("--dataset", choices=["bike", "news"], default="news",
                       help="Which dataset to use")
-    argp.add_argument("--limit-dataset", action="store_true",
+    argp.add_argument("--limit-dataset", type=int, default=None,
                       help="If the dataset should be reduced for debugging.")
     return argp.parse_args()
 
@@ -80,12 +80,15 @@ def main():
     else:
         X, y = data.load_news()
 
+    # Both datasets have log-normal target variables.
+    y = np.log(y)
+
     logging.info("Using the '%s' dataset, %d rows, %d features",
                  args.dataset, X.shape[0], X.shape[1])
 
-    if args.limit_dataset:
-        X = X[:500]
-        y = y[:500]
+    if args.limit_dataset is not None:
+        X = X[:args.limit_dataset]
+        y = y[:args.limit_dataset]
 
     if args.model is None:
         used_models = models.MODELS
@@ -105,6 +108,7 @@ def main():
             # Transform the data
             scaler = sklearn.preprocessing.StandardScaler()
             X_train = scaler.fit_transform(X[train_index])
+            y_train = y[train_index]
             grid_search.fit(X_train, y[train_index])
 
             prediction = grid_search.predict(scaler.transform(X[test_index]))
@@ -114,7 +118,8 @@ def main():
 
         predictions = np.concatenate(predictions)
         log_probs = models.log_prob(predictions, y)
-        maes = np.abs(predictions - y)
+        # Calulate MAE in the original space, not log space
+        maes = np.abs(np.exp(predictions) - np.exp(y))
         stddevs = np.concatenate(stddevs)
 
         logging.info("Model: %s, MAE: %.2f, mean log-prob: %.2f",
