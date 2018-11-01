@@ -9,6 +9,7 @@ from urllib.request import urlretrieve
 
 import numpy as np
 import pandas as pd
+from sklearn import datasets
 
 URL_BIKE= "http://archive.ics.uci.edu/ml/machine-learning-databases/00275/Bike-Sharing-Dataset.zip"
 FILENAME_BIKE = "hour.csv"
@@ -68,3 +69,7 @@ def load_news():
     del df["shares"]
 
     return df.values.astype(np.float32), target.values
+
+
+def load_boston():
+    return datasets.load_boston(True)

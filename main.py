@@ -69,7 +69,8 @@ def parse_args():
     argp.add_argument("--n-jobs", type=int, default=-1,
                       help="Number of jobs in cross validation. Default all "
                       "CPUs.")
-    argp.add_argument("--dataset", choices=["bike", "news"], default="bike",
+    argp.add_argument("--dataset", choices=["bike", "news", "boston"],
+                      default="bike",
                       help="Which dataset to use")
     argp.add_argument("--limit-dataset", type=int, default=None,
                       help="If the dataset should be reduced for debugging.")
@@ -83,10 +84,7 @@ def main():
 
     logging.basicConfig(level=logging.INFO)
 
-    if args.dataset == "bike":
-        X, y = data.load_bike()
-    else:
-        X, y = data.load_news()
+    X, y = getattr(data, "load_" + args.dataset)()
 
     if args.limit_dataset is not None:
         X = X[:args.limit_dataset]
