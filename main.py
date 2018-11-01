@@ -69,10 +69,14 @@ def parse_args():
     argp.add_argument("--n-jobs", type=int, default=-1,
                       help="Number of jobs in cross validation. Default all "
                       "CPUs.")
-    argp.add_argument("--dataset", choices=["bike", "news"], default="news",
+    argp.add_argument("--dataset", choices=["bike", "news"], default="bike",
                       help="Which dataset to use")
     argp.add_argument("--limit-dataset", type=int, default=None,
                       help="If the dataset should be reduced for debugging.")
+    argp.add_argument("--test-size", type=float, default=0.4,
+                      help="Part of the dataset that's the test set")
+    argp.add_argument("--scale-target", action="store_true",
+                      help="If the target should be zero-mean unit-dev")
     return argp.parse_args()
 
 
@@ -86,20 +90,18 @@ def main():
     else:
         X, y = data.load_news()
 
-    # Shuffling
-    shuffling = np.random.permutation(len(X))
-    X = X[shuffling]
-    y = y[shuffling]
-
-    # y = y - y.mean()
-    # y = y / y.std()
+    if args.limit_dataset is not None:
+        X = X[:args.limit_dataset]
+        y = y[:args.limit_dataset]
 
     logging.info("Using the '%s' dataset, %d rows, %d features",
                  args.dataset, X.shape[0], X.shape[1])
 
-    if args.limit_dataset is not None:
-        X = X[:args.limit_dataset]
-        y = y[:args.limit_dataset]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=args.test_size, random_state=2345)
+
+    # y = y - y.mean()
+    # y = y / y.std()
 
     if args.model is None:
         used_models = models.MODELS
@@ -111,31 +113,23 @@ def main():
 
         grid_search = GridSearchCV(
             model_cls(), params, cv=5, n_jobs=args.n_jobs,
-            scoring=models.RegressionConfidenceScorer())
+            scoring=models.RegressionConfidenceScorer(), iid=True)
 
-        # Calc error again as it's more stable with more points.
-        predictions, stddevs = [], []
-        for train_index, test_index in KFold(5).split(X):
-            # Transform the data
-            scaler = sklearn.preprocessing.StandardScaler()
-            X_train = scaler.fit_transform(X[train_index])
-            y_train = y[train_index]
-            grid_search.fit(X_train, y[train_index])
+        # Transform the data
+        scaler = sklearn.preprocessing.StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        grid_search.fit(X_train, y_train)
 
-            prediction = grid_search.predict(scaler.transform(X[test_index]))
-            predictions.append(prediction)
-            stddevs.append(grid_search.best_estimator_.predict_stddev(
-                X[test_index], prediction))
+        prediction = grid_search.predict(scaler.transform(X_test))
+        stddev = grid_search.best_estimator_.predict_stddev(
+            X_test, prediction)
 
-        predictions = np.concatenate(predictions)
-        stddevs = np.concatenate(stddevs)
-        log_probs = models.normpdf(y, stddevs, predictions, True)
-        # Calulate MAE in the original space, not log space
-        maes = np.abs(predictions - y)
+        log_probs = models.normpdf(y_test, stddev, prediction, True)
+        mae = np.abs(prediction - y_test)
 
         logging.info("Model: %s, MAE: %.2f, mean log-prob: %.2f",
-                     model_name, maes.mean(), log_probs.mean())
-        plot.plot_error_at_retrieval(maes, stddevs, model_name)
+                     model_name, mae.mean(), log_probs.mean())
+        plot.plot_error_at_retrieval(mae, stddev, model_name)
 
 
 if __name__ == "__main__":
