@@ -152,11 +152,11 @@ class TorchRegressor(nn.Module):
         super(TorchRegressor, self).__init__()
         self.set_params(**params)
         self.mnb_size = 512
-        self.epochs = 1000
+        self.epochs = 20
 
         self.mean_hid = nn.Linear(17, 512)
         self.mean_do = nn.Dropout(0.2)
-        self.mean = nn.Linear(512, 1)
+        self.mean = nn.Linear(17, 1)
         self.stddev = nn.Linear(17, 1)
         self.optimizer = optim.RMSprop(self.parameters(), lr=0.001)
 
@@ -164,12 +164,16 @@ class TorchRegressor(nn.Module):
         var = stddev ** 2
         denom = (2 * math.pi * var) ** 0.5
         num = (-((x - mean) ** 2 / (2 * var))).exp()
-        return num / denom
+        return num / denom + 0.000001
 
     def fit(self, X, y):
+        logging.info("Target mean: %.2f, stddev: %.2f",
+                     y.mean(), y.std())
 
         self.mean.bias.data.fill_(y.mean())
-        self.stddev.bias.data.fill_(100)
+        self.mean.weight.data.uniform_(0)
+        self.stddev.bias.data.fill_(y.std())
+        self.stddev.weight.data.fill_(0)
 
         def batches():
             inds = np.random.shuffle(np.arange(len(X)))
@@ -182,17 +186,16 @@ class TorchRegressor(nn.Module):
         for epoch_ind in range(self.epochs):
             epoch_losses = []
             for X_mnb, y_mnb in batches():
-                mean = self.mean(self.mean_do(self.mean_hid(X_mnb)))
+                # mean = self.mean(self.mean_do(self.mean_hid(X_mnb)))
+                mean = self.mean(X_mnb)
                 stddev = self.stddev(X_mnb)
                 # logging.info("%.3f, %.3f", mean.mean().item(), stddev.mean().item())
                 prob = self.prob(y_mnb, mean, stddev)
                 loss = -prob.log().mean()
-
-                loss_mean = (mean - y_mnb).abs().mean()
-                epoch_losses.append(loss_mean.item())
+                epoch_losses.append(loss.item())
 
                 self.optimizer.zero_grad()
-                loss_mean.backward()
+                loss.backward()
                 self.optimizer.step()
 
             logging.info("TorchRegressor epoch %d, loss %.5f",
@@ -204,3 +207,11 @@ class TorchRegressor(nn.Module):
 
     def get_params(self, deep=True):
         return self.params
+
+    def predict(self, X):
+        with torch.no_grad():
+            return self.mean(torch.FloatTensor(X)).cpu().numpy().flatten()
+
+    def predict_stddev(self, X, _):
+        with torch.no_grad():
+            return self.stddev(torch.FloatTensor(X)).cpu().numpy().flatten()

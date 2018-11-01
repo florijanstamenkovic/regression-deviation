@@ -34,6 +34,12 @@ MODELS = (
          "stddev_cls": [sklearn.linear_model.Ridge],
          "stddev__alpha": [0, 1, 10, 100],
      }),
+    (models.ConfidenceRegressor, "linear",
+     {
+         "regression_cls": [sklearn.linear_model.LinearRegression],
+         "reg_conf_split": [0.5],
+         "stddev_cls": [sklearn.linear_model.LinearRegression],
+     }),
     (models.ConfidenceRegressor, "rf",
      {
          "regression_cls": [sklearn.ensemble.RandomForestRegressor],
@@ -79,6 +85,14 @@ def main():
         X, y = data.load_bike()
     else:
         X, y = data.load_news()
+
+    # Shuffling
+    shuffling = np.random.permutation(len(X))
+    X = X[shuffling]
+    y = y[shuffling]
+
+    # y = y - y.mean()
+    # y = y / y.std()
 
     logging.info("Using the '%s' dataset, %d rows, %d features",
                  args.dataset, X.shape[0], X.shape[1])
