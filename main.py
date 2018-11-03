@@ -62,9 +62,10 @@ MODELS = (
 
 def parse_args():
     argp = ArgumentParser()
+    argp.add_argument("--logging", default=logging.INFO,
+                      choices=["INFO", "DEBUG"], help="Logging level")
     argp.add_argument(
-        "--model", default=None, choices=tuple(m[1] for m in MODELS),
-        nargs="+",
+        "--model", default=None, choices=tuple(m[1] for m in MODELS), nargs="+",
         help="Force which model is evaluated. Default evaluates all.")
     argp.add_argument("--n-jobs", type=int, default=-1,
                       help="Number of jobs in cross validation. Default all "
@@ -82,7 +83,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=args.logging)
 
     X, y = getattr(data, "load_" + args.dataset)()
 

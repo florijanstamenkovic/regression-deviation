@@ -187,25 +187,40 @@ class TorchRegressor(nn.Module):
             for batch_ind in range(0, len(X) // self.mnb_size):
                 start = self.mnb_size * batch_ind
                 end = start + self.mnb_size
-                yield torch.FloatTensor(X[start:end]), torch.FloatTensor(y[start:end])
+                yield (torch.FloatTensor(X[start:end]),
+                       torch.FloatTensor(y[start:end]))
+
+        def quantiles(t):
+            t = t.cpu().detach().numpy()
+            return ", ".join("%.2f" % q for q in
+                             np.quantile(t, np.linspace(0, 1, 5)))
+
+        def param_quantiles(t):
+            return "%s, grad: %s" % (quantiles(t), quantiles(t.grad))
 
         for epoch_ind in range(self.epochs):
             epoch_losses = []
-            for X_mnb, y_mnb in batches():
+            for batch_ind, (X_mnb, y_mnb) in enumerate(batches()):
                 mean = self.forward_mean(X_mnb)
                 stddev = self.forward_std(X_mnb)
                 prob = self.prob(y_mnb, mean, stddev)
-                logging.debug("%.3f", prob.mean().item())
                 loss = -prob.log().mean()
                 epoch_losses.append(loss.item())
 
                 self.optimizer.zero_grad()
                 loss.backward()
-                logging.debug("%.3f, %.3f, %.3f, %.3f",
-                              self.mean.weight.grad.mean().item(),
-                              self.mean.weight.mean().item(),
-                              self.stddev.weight.grad.mean().item(),
-                              self.stddev.weight.mean().item())
+                if batch_ind == 0:
+                    logging.debug("\tMean: %s", quantiles(mean))
+                    logging.debug("\tStddev: %s", quantiles(stddev))
+                    logging.debug("\tProbability: %s", quantiles(prob))
+                    logging.debug("\tMean weight: %s",
+                                  param_quantiles(self.mean.weight))
+                    logging.debug("\tMean bias: %s",
+                                  param_quantiles(self.mean.bias))
+                    logging.debug("\tStddev weight: %s",
+                                  param_quantiles(self.stddev.weight))
+                    logging.debug("\tStddev bias: %s",
+                                  param_quantiles(self.stddev.bias))
                 self.optimizer.step()
 
             logging.info("TorchRegressor epoch %d, loss %.5f",
