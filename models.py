@@ -179,6 +179,7 @@ class TorchRegressor(nn.Module):
 
         for epoch_ind in range(self.epochs):
             epoch_losses = []
+            epoch_maes = []
             for batch_ind, (X_mnb, y_mnb) in enumerate(batches()):
                 self.optimizer.zero_grad()
                 mean = self.forward_mean(X_mnb)
@@ -187,6 +188,7 @@ class TorchRegressor(nn.Module):
                 log_prob = self.log_prob(y_mnb, mean, stddev)
                 loss = -log_prob.mean()
                 epoch_losses.append(loss.item())
+                epoch_maes.append(abs_dist.mean().item())
 
                 loss.backward()
                 nn.utils.clip_grad_value_(self.parameters(), 1)
@@ -205,8 +207,10 @@ class TorchRegressor(nn.Module):
                                   param_quantiles(self.stddev.bias))
                 self.optimizer.step()
 
-            logging.info("TorchRegressor epoch %d, loss %.5f",
-                         epoch_ind, np.mean(epoch_losses[0]))
+            logging.info(
+                "TorchRegressor epoch %d, MAE %.2f, mean loss %.5f, "
+                "first batch loss %.5f", epoch_ind, np.mean(epoch_maes),
+                np.mean(epoch_losses), epoch_losses[0])
 
         return self
 
