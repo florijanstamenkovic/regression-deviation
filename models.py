@@ -79,6 +79,12 @@ class ConfidenceRegressor():
         return self.params
 
 
+class RandomForestStdRegressor(sklearn.ensemble.RandomForestRegressor):
+    def predict_stddev(self, X):
+        std = np.std([e.predict(X) for e in self.estimators_], axis=0, ddof=1)
+        return std + 0.0000001
+
+
 class GaussianProcessEnsemble():
 
     @staticmethod

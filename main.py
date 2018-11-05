@@ -51,6 +51,10 @@ MODELS = (
     (models.GaussianProcessEnsemble, "gaussian_process", False,
      {
      }),
+    (models.RandomForestStdRegressor, "random_forest", False,
+     {
+         "n_estimators": [100],
+     }),
     (models.TorchRegressor, "torch", True,
      {
      }),
