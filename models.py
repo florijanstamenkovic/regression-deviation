@@ -5,7 +5,6 @@ import numpy as np
 import sklearn.linear_model
 import sklearn.ensemble
 from sklearn.model_selection import train_test_split, GridSearchCV, KFold
-from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -83,49 +82,6 @@ class BaggingRegressor(sklearn.ensemble.BaggingRegressor):
     def predict_stddev(self, X):
         std = np.std([e.predict(X) for e in self.estimators_], axis=0, ddof=1)
         return std + 0.0000001
-
-
-class GaussianProcessEnsemble():
-
-    @staticmethod
-    def _make_gp():
-        kernel = kernels.ConstantKernel() * kernels.RBF() + kernels.WhiteKernel()
-        return GaussianProcessRegressor(kernel, normalize_y=True)
-
-    def __init__(self, **params):
-        self.count = 20
-        self.gps = [GaussianProcessEnsemble._make_gp()
-                    for _ in range(self.count)]
-        self.set_params(**params)
-
-    def fit(self, X, y):
-        fold = KFold(self.count)
-        for (_, fold), gp in zip(fold.split(X), self.gps):
-            gp.fit(X[fold], y[fold])
-
-    def predict(self, X):
-        return np.mean([gp.predict(X) for gp in self.gps], axis=0)
-
-    def predict_stddev(self, X):
-        predictions = [gp.predict(X, return_std=True) for gp in self.gps]
-        mean, stddev = zip(*predictions)
-
-        # Convert means and stds into (N_samples, ensemble_size)
-        # and weight them uniformly
-        mean = np.vstack(mean).T / self.count
-        stddev = np.vstack(stddev).T / self.count
-
-        return stddev.mean(axis=1) + np.power(mean, 2).mean(axis=1) - \
-            np.power(mean.mean(axis=1), 2)
-
-    def set_params(self, **params):
-        self.params = params
-        for gp in self.gps:
-            gp.set_params(**params)
-        return self
-
-    def get_params(self, deep=True):
-        return self.params
 
 
 class TorchRegressor(nn.Module):

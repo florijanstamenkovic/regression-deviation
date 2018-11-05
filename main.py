@@ -12,8 +12,7 @@ import sklearn.dummy
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge, LinearRegression
 import sklearn.linear_model
-from sklearn.model_selection import (train_test_split, GridSearchCV,
-                                     train_test_split, KFold)
+from sklearn.model_selection import GridSearchCV, train_test_split, KFold
 
 import data
 import models
@@ -48,9 +47,6 @@ MODELS = (
          "reg_conf_split": [0.5, None],
          "stddev_cls": [RandomForestRegressor],
          "stddev__n_estimators": [100],
-     }),
-    (models.GaussianProcessEnsemble, "gaussian_process", False,
-     {
      }),
     (models.BaggingRegressor, "bagging", False,
      {"base_estimator": [None, Ridge(alpha=10)], "n_estimators": [100]}),
