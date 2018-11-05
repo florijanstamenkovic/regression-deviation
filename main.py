@@ -124,12 +124,14 @@ def main():
         log_probs = models.normpdf(y_test, stddev, prediction, True)
 
         if scale_target:
-            mae = np.abs(prediction - (y_test * y_std + y_mean))
-        else:
-            mae = np.abs(prediction - y_test)
+            y_test = y_test * y_std + y_mean
+            prediction = prediction * y_std + y_mean
 
-        logging.info("Model: %s, MAE: %.2f, mean log-prob: %.2f",
-                     model_name, mae.mean(), log_probs.mean())
+        mae = np.abs(prediction - y_test)
+        rmse = (mae ** 2).mean() ** 0.5
+
+        logging.info("Model: %s, MAE: %.2f, RMSE: %.2f, mean log-prob: %.2f",
+                     model_name, mae.mean(), rmse, log_probs.mean())
         plot.plot_error_at_retrieval(mae, stddev, model_name)
 
 
