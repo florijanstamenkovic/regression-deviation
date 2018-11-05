@@ -9,7 +9,8 @@ import numpy as np
 import sklearn
 import sklearn.datasets
 import sklearn.dummy
-import sklearn.ensemble
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Ridge, LinearRegression
 import sklearn.linear_model
 from sklearn.model_selection import (train_test_split, GridSearchCV,
                                      train_test_split, KFold)
@@ -28,33 +29,31 @@ MODELS = (
      }),
     (models.DeviationRegressor, "deviation_ridge", False,
      {
-         "regression_cls": [sklearn.linear_model.Ridge],
+         "regression_cls": [Ridge],
          "regression__alpha": [0, 1, 10, 1000],
          "reg_conf_split": [0.5, None],
-         "stddev_cls": [sklearn.linear_model.Ridge],
+         "stddev_cls": [Ridge],
          "stddev__alpha": [0, 1, 10, 1000],
      }),
     (models.DeviationRegressor, "deviation_linear", False,
      {
-         "regression_cls": [sklearn.linear_model.LinearRegression],
+         "regression_cls": [LinearRegression],
          "reg_conf_split": [0.5, None],
-         "stddev_cls": [sklearn.linear_model.LinearRegression],
+         "stddev_cls": [LinearRegression],
      }),
     (models.DeviationRegressor, "deviation_random_forest", False,
      {
-         "regression_cls": [sklearn.ensemble.RandomForestRegressor],
+         "regression_cls": [RandomForestRegressor],
          "regression__n_estimators": [100],
          "reg_conf_split": [0.5, None],
-         "stddev_cls": [sklearn.ensemble.RandomForestRegressor],
+         "stddev_cls": [RandomForestRegressor],
          "stddev__n_estimators": [100],
      }),
     (models.GaussianProcessEnsemble, "gaussian_process", False,
      {
      }),
-    (models.RandomForestStdRegressor, "random_forest", False,
-     {
-         "n_estimators": [100],
-     }),
+    (models.BaggingRegressor, "bagging", False,
+     {"base_estimator": [None, Ridge(alpha=10)], "n_estimators": [100]}),
     (models.TorchRegressor, "torch", True,
      {
      }),
