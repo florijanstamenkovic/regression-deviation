@@ -199,7 +199,10 @@ class TorchRegressor(nn.Module):
         return self
 
     def fit(self, X, y):
-        return self.fit_lbfgs(X, y)
+        self.fit_lbfgs(X, y)
+        error = np.abs((self.predict(X) - y)).mean()
+        print("train mae: ", error)
+        return self
 
     def set_params(self, **params):
         self.params = params

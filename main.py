@@ -128,10 +128,11 @@ def main():
 
         results.append((np.abs(prediction - y_test), stddev, model_name))
 
-    for mae, stddev, model_name in results:
-        rmse = (mae ** 2).mean() ** 0.5
+    for abs_error, stddev, model_name in results:
+        rmse = (abs_error ** 2).mean() ** 0.5
         logging.info("Model: %s, MAE: %.2f, RMSE: %.2f",
-                     model_name, mae.mean(), rmse)
+                     model_name, abs_error.mean(), rmse)
+        plot.plot_stddev_error_scatter(abs_error, stddev, model_name)
 
     plot.plot_error_at_retrieval(*zip(*results))
 
