@@ -13,31 +13,25 @@ if not os.path.exists(OUTPUT_DIR):
 
 
 def plot_error_at_retrieval(mae, stddev, model_name, points=41):
-    confidence = stddev.max() - stddev
-    confidence -= confidence.min()
-    confidence /= confidence.max()
+    stddev_space = np.linspace(stddev.min(), stddev.max(), points)
+    retrieval = [(stddev <= s).mean() for s in stddev_space]
 
-    space = np.linspace(0, 1, points)
-    retrieval = [(confidence >= c).mean() for c in space]
-
-    # Flip coordinates as retrieval must be increasing for np.interp
-    space = space[::-1]
-    retrieval = retrieval[::-1]
+    retrieval_space = np.linspace(0, 1, points)
 
     errors = []
-    for point in space:
-        conf_thresh = np.interp(point, retrieval, space)
-        mask = confidence >= conf_thresh
+    for point in retrieval_space:
+        stddev_thresh = np.interp(point, retrieval, stddev_space)
+        mask = stddev <= stddev_thresh
         errors.append(0 if mask.sum() == 0 else mae[mask].mean())
 
     # Don't plot zero retrievals
-    mask = space >= 0.1
-    space = space[mask]
+    mask = retrieval_space >= 0.1
+    retrieval_space = retrieval_space[mask]
     errors = np.array(errors)[mask]
 
     plt.figure(figsize=(12, 9))
     plt.title("MAE at retrieval: " + model_name)
-    plt.plot(space, errors)
+    plt.plot(retrieval_space, errors)
     plt.ylabel("MAE")
     plt.xlabel("Retrieval")
     plt.grid(alpha=0.5, linestyle=':')
