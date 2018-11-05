@@ -102,6 +102,9 @@ def main():
     else:
         used_models = [m for m in MODELS if m[1] in args.model]
 
+    # Results containing (abs_error, stddev, model_name)
+    results = []
+
     for model_cls, model_name, scale_target, params in used_models:
         logging.info("Fitting model %s", model_name)
 
@@ -123,18 +126,18 @@ def main():
         prediction = grid_search.predict(scaler.transform(X_test))
         stddev = grid_search.best_estimator_.predict_stddev(X_test)
 
-        log_probs = models.normpdf(y_test, stddev, prediction, True)
-
         if scale_target:
             y_test = y_test * y_std + y_mean
             prediction = prediction * y_std + y_mean
 
-        mae = np.abs(prediction - y_test)
-        rmse = (mae ** 2).mean() ** 0.5
+        results.append((np.abs(prediction - y_test), stddev, model_name))
 
-        logging.info("Model: %s, MAE: %.2f, RMSE: %.2f, mean log-prob: %.2f",
-                     model_name, mae.mean(), rmse, log_probs.mean())
-        plot.plot_error_at_retrieval(mae, stddev, model_name)
+    for mae, stddev, model_name in results:
+        rmse = (mae ** 2).mean() ** 0.5
+        logging.info("Model: %s, MAE: %.2f, RMSE: %.2f",
+                     model_name, mae.mean(), rmse)
+
+    plot.plot_error_at_retrieval(*zip(*results))
 
 
 if __name__ == "__main__":
