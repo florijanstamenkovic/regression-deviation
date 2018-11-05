@@ -123,7 +123,8 @@ class TorchRegressor(nn.Module):
         def batches():
             inds = np.random.shuffle(np.arange(len(X)))
 
-            for batch_ind in range(0, len(X) // self.mnb_size):
+            batch_count = (len(X) - 1) // self.mnb_size + 1
+            for batch_ind in range(batch_count):
                 start = self.mnb_size * batch_ind
                 end = start + self.mnb_size
                 yield (torch.FloatTensor(X[start:end]),
