@@ -89,21 +89,23 @@ class TorchRegressor(nn.Module):
     def __init__(self, **params):
         super(TorchRegressor, self).__init__()
         self.set_params(**params)
-        self.mnb_size = 128
+        self.mnb_size = 5000
         self.epochs = 20
 
     def init_params(self, X, y):
         self.mean = nn.Linear(X.shape[1], 1)
         self.stddev = nn.Linear(X.shape[1], 1)
-        self.optimizer = optim.SGD(self.parameters(), lr=0.0, momentum=0.0)
+        self.optimizer_sgd = optim.SGD(self.parameters(), lr=0.05, momentum=0.1)
+        self.optimizer_lbfgs = optim.LBFGS(self.parameters(), lr=0.8)
 
-        # r = sklearn.linear_model.Ridge(alpha=10)
-        # r.fit(X, y)
-        # self.mean.bias.data.fill_(float(r.intercept_))
-        # self.mean.weight.data = torch.FloatTensor(r.coef_.reshape(1, -1))
-
-        self.mean.bias.data.fill_(y.mean())
-        self.mean.weight.data.uniform_(-0.1, 0.1)
+        if True:
+            r = sklearn.linear_model.Ridge(alpha=10)
+            r.fit(X, y)
+            self.mean.bias.data.fill_(float(r.intercept_))
+            self.mean.weight.data = torch.FloatTensor(r.coef_.reshape(1, -1))
+        else:
+            self.mean.bias.data.fill_(y.mean())
+            self.mean.weight.data.uniform_(-0.1, 0.1)
 
         self.stddev.bias.data.fill_(y.std())
         self.stddev.weight.data.uniform_(-0.1, 0.1)
@@ -117,7 +119,26 @@ class TorchRegressor(nn.Module):
     def log_prob(self, x, mean, stddev):
         return -((2 * math.pi * stddev).log() + ((x - mean) ** 2) / stddev) / 2
 
-    def fit(self, X, y):
+    def fit_lbfgs(self, X, y):
+        self.init_params(X, y)
+        X = torch.FloatTensor(X)
+        y = torch.FloatTensor(y)
+
+        def closure():
+            self.optimizer_lbfgs.zero_grad()
+            mean = self.forward_mean(X)
+            stddev = self.forward_std(X)
+            abs_dist = (y - mean).abs()
+            log_prob = self.log_prob(y, mean, stddev)
+            loss = -log_prob.mean()
+            print('loss:', loss.item())
+            return loss
+
+        self.optimizer_lbfgs.step(closure)
+        return self
+
+
+    def fit_sgd(self, X, y):
         self.init_params(X, y)
 
         def batches():
@@ -176,6 +197,9 @@ class TorchRegressor(nn.Module):
                 np.mean(epoch_losses), epoch_losses[0])
 
         return self
+
+    def fit(self, X, y):
+        return self.fit_lbfgs(X, y)
 
     def set_params(self, **params):
         self.params = params
