@@ -20,13 +20,13 @@ import plot
 
 
 MODELS = (
-    (models.ConfidenceRegressor, "dummy", False,
+    (models.DeviationRegressor, "deviation_dummy", False,
      {
          "regression_cls": [sklearn.dummy.DummyRegressor],
          "reg_conf_split": [0.5],
          "stddev_cls": [sklearn.dummy.DummyRegressor],
      }),
-    (models.ConfidenceRegressor, "ridge", False,
+    (models.DeviationRegressor, "deviation_ridge", False,
      {
          "regression_cls": [sklearn.linear_model.Ridge],
          "regression__alpha": [0, 1, 10, 1000],
@@ -34,13 +34,13 @@ MODELS = (
          "stddev_cls": [sklearn.linear_model.Ridge],
          "stddev__alpha": [0, 1, 10, 1000],
      }),
-    (models.ConfidenceRegressor, "linear", False,
+    (models.DeviationRegressor, "deviation_linear", False,
      {
          "regression_cls": [sklearn.linear_model.LinearRegression],
          "reg_conf_split": [0.5, None],
          "stddev_cls": [sklearn.linear_model.LinearRegression],
      }),
-    (models.ConfidenceRegressor, "rf", False,
+    (models.DeviationRegressor, "deviation_random_forest", False,
      {
          "regression_cls": [sklearn.ensemble.RandomForestRegressor],
          "regression__n_estimators": [100],
@@ -114,7 +114,7 @@ def main():
 
         grid_search = GridSearchCV(
             model_cls(), params, cv=5, n_jobs=args.n_jobs,
-            scoring=models.RegressionConfidenceScorer(), iid=True)
+            scoring=models.RegressionDeviationScorer(), iid=True)
 
         # Transform the data
         scaler = sklearn.preprocessing.StandardScaler()

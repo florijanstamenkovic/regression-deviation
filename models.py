@@ -20,7 +20,7 @@ def normpdf(mean, stddev, prediction, log):
     return np.log(prob + 0.000001) if log else prob
 
 
-class RegressionConfidenceScorer():
+class RegressionDeviationScorer():
 
     def __init__(self):
         pass
@@ -35,7 +35,7 @@ class RegressionConfidenceScorer():
         return normpdf(y, stddev, prediction, True).mean()
 
 
-class ConfidenceRegressor():
+class DeviationRegressor():
 
     def __init__(self, **params):
         self.set_params(**params)
