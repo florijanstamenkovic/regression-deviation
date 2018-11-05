@@ -11,10 +11,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 
-def concat(ftrs, prediction):
-    return np.hstack((ftrs, prediction.reshape(-1, 1)))
-
-
 def normpdf(mean, stddev, prediction, log):
     var = stddev ** 2
     denom = (2 * math.pi * var) ** 0.5
@@ -51,8 +47,13 @@ class ConfidenceRegressor():
     def fit(self, X, y):
         params = self.get_params()
 
-        X_reg, X_conf, y_reg, y_conf = train_test_split(
-            X, y, test_size=params["reg_conf_split"])
+        reg_conf_split = params["reg_conf_split"]
+        if reg_conf_split is None:
+            X_reg, X_conf = X, X
+            y_reg, y_conf = y, y
+        else:
+            X_reg, X_conf, y_reg, y_conf = train_test_split(
+                X, y, test_size=params["reg_conf_split"])
 
         self.regression = params["regression_cls"](
             **self._extract_params("regression__"))
@@ -61,43 +62,17 @@ class ConfidenceRegressor():
         self.stddev = params["stddev_cls"](
             **self._extract_params("stddev__"))
 
-        # Fit stddev.
-        regression_pred = self.regression.predict(X_conf)
-        ftrs = concat(X_conf, regression_pred)
-        self.stddev.fit(ftrs, np.abs(regression_pred - y_conf))
+        self.stddev.fit(X_conf,
+                        np.abs(self.regression.predict(X_conf) - y_conf))
 
     def predict(self, X):
         return self.regression.predict(X)
 
     def predict_stddev(self, X, prediction):
-        ftrs = concat(X, prediction)
-        return self.stddev.predict(ftrs)
+        return self.stddev.predict(X)
 
     def set_params(self, **params):
         self.params = params
-        return self
-
-    def get_params(self, deep=True):
-        return self.params
-
-
-class BayesianRidge():
-    def __init__(self, **params):
-        self.ridge = sklearn.linear_model.BayesianRidge(**params)
-        self.params = params
-
-    def fit(self, X, y):
-        self.ridge.fit(X, y)
-
-    def predict(self, X):
-        return self.ridge.predict(X)
-
-    def predict_stddev(self, X, _):
-        return self.ridge.predict(X, return_std=True)[1]
-
-    def set_params(self, **params):
-        self.params = params
-        self.ridge.set_params(**params)
         return self
 
     def get_params(self, deep=True):
