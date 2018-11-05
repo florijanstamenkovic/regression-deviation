@@ -127,31 +127,33 @@ class TorchRegressor(nn.Module):
     def __init__(self, **params):
         super(TorchRegressor, self).__init__()
         self.set_params(**params)
-        self.mnb_size = 512
-        self.epochs = 50
+        self.mnb_size = 128
+        self.epochs = 20
 
     def init_params(self, X, y):
         self.mean = nn.Linear(X.shape[1], 1)
         self.stddev = nn.Linear(X.shape[1], 1)
-        self.optimizer = optim.RMSprop(self.parameters(), lr=0.001)
+        self.optimizer = optim.SGD(self.parameters(), lr=0.0, momentum=0.0)
+
+        # r = sklearn.linear_model.Ridge(alpha=10)
+        # r.fit(X, y)
+        # self.mean.bias.data.fill_(float(r.intercept_))
+        # self.mean.weight.data = torch.FloatTensor(r.coef_.reshape(1, -1))
 
         self.mean.bias.data.fill_(y.mean())
-        self.stddev.bias.data.fill_(y.std())
-        init = 0.2
-        self.mean.weight.data.uniform_(-init, init)
-        self.stddev.weight.data.uniform_(-init, init)
+        self.mean.weight.data.uniform_(-0.1, 0.1)
 
-    def prob(self, x, mean, stddev):
-        var = stddev ** 2
-        denom = (2 * math.pi * var) ** 0.5
-        num = (-((x - mean) ** 2 / (2 * var))).exp()
-        return num / denom + 0.000001
+        self.stddev.bias.data.fill_(y.std())
+        self.stddev.weight.data.uniform_(-0.1, 0.1)
 
     def forward_mean(self, x):
         return self.mean(x)
 
     def forward_std(self, x):
-        return self.stddev(x)
+        return torch.max(torch.tensor(0.001), self.stddev(x))
+
+    def log_prob(self, x, mean, stddev):
+        return -((2 * math.pi * stddev).log() + ((x - mean) ** 2) / stddev) / 2
 
     def fit(self, X, y):
         self.init_params(X, y)
@@ -167,6 +169,8 @@ class TorchRegressor(nn.Module):
 
         def quantiles(t):
             t = t.cpu().detach().numpy()
+            if t.ndim == 1 and len(t) == 1:
+                return "%.4f" % float(t)
             return ", ".join("%.2f" % q for q in
                              np.quantile(t, np.linspace(0, 1, 5)))
 
@@ -176,18 +180,21 @@ class TorchRegressor(nn.Module):
         for epoch_ind in range(self.epochs):
             epoch_losses = []
             for batch_ind, (X_mnb, y_mnb) in enumerate(batches()):
+                self.optimizer.zero_grad()
                 mean = self.forward_mean(X_mnb)
                 stddev = self.forward_std(X_mnb)
-                prob = self.prob(y_mnb, mean, stddev)
-                loss = -prob.log().mean()
+                abs_dist = (y_mnb - mean).abs()
+                log_prob = self.log_prob(y_mnb, mean, stddev)
+                loss = -log_prob.mean()
                 epoch_losses.append(loss.item())
 
-                self.optimizer.zero_grad()
                 loss.backward()
+                nn.utils.clip_grad_value_(self.parameters(), 1)
                 if batch_ind == 0:
                     logging.debug("\tMean: %s", quantiles(mean))
                     logging.debug("\tStddev: %s", quantiles(stddev))
-                    logging.debug("\tProbability: %s", quantiles(prob))
+                    logging.debug("\tAbs-dist: %s", quantiles(abs_dist))
+                    logging.debug("\tLog-prob: %s", quantiles(log_prob))
                     logging.debug("\tMean weight: %s",
                                   param_quantiles(self.mean.weight))
                     logging.debug("\tMean bias: %s",
@@ -200,6 +207,8 @@ class TorchRegressor(nn.Module):
 
             logging.info("TorchRegressor epoch %d, loss %.5f",
                          epoch_ind, np.mean(epoch_losses[0]))
+
+        return self
 
     def set_params(self, **params):
         self.params = params
