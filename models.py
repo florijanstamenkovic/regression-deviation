@@ -3,6 +3,7 @@ import logging
 
 import numpy as np
 import sklearn.linear_model
+import sklearn.ensemble
 from sklearn.model_selection import train_test_split, GridSearchCV, KFold
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 import torch
@@ -27,10 +28,9 @@ class RegressionConfidenceScorer():
     def __call__(self, estimator, X, y):
         prediction = estimator.predict(X)
         if isinstance(estimator, GridSearchCV):
-            stddev = estimator.best_estimator_.predict_stddev(
-                X, prediction)
+            stddev = estimator.best_estimator_.predict_stddev(X)
         else:
-            stddev = estimator.predict_stddev(X, prediction)
+            stddev = estimator.predict_stddev(X)
 
         return normpdf(y, stddev, prediction, True).mean()
 
@@ -68,7 +68,7 @@ class ConfidenceRegressor():
     def predict(self, X):
         return self.regression.predict(X)
 
-    def predict_stddev(self, X, prediction):
+    def predict_stddev(self, X):
         return self.stddev.predict(X)
 
     def set_params(self, **params):
@@ -100,7 +100,7 @@ class GaussianProcessEnsemble():
     def predict(self, X):
         return np.mean([gp.predict(X) for gp in self.gps], axis=0)
 
-    def predict_stddev(self, X, _):
+    def predict_stddev(self, X):
         predictions = [gp.predict(X, return_std=True) for gp in self.gps]
         mean, stddev = zip(*predictions)
 
@@ -226,7 +226,7 @@ class TorchRegressor(nn.Module):
             return self.forward_mean(
                 torch.FloatTensor(X)).cpu().numpy().flatten()
 
-    def predict_stddev(self, X, _):
+    def predict_stddev(self, X):
         with torch.no_grad():
             return self.forward_std(
                 torch.FloatTensor(X)).cpu().numpy().flatten()

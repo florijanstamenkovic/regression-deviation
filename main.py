@@ -118,8 +118,7 @@ def main():
         grid_search.fit(X_train, y_train)
 
         prediction = grid_search.predict(scaler.transform(X_test))
-        stddev = grid_search.best_estimator_.predict_stddev(
-            X_test, prediction)
+        stddev = grid_search.best_estimator_.predict_stddev(X_test)
 
         log_probs = models.normpdf(y_test, stddev, prediction, True)
 
