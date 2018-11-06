@@ -51,6 +51,7 @@ MODELS = (
     (models.BaggingRegressor, "bagging",
      {"base_estimator": [None, Ridge(alpha=10)], "n_estimators": [100]}),
     (models.TorchRegressor, "torch", {}),
+    (models.KNeighborsRegressor, "knn", {}),
 )
 
 

@@ -79,9 +79,29 @@ class DeviationRegressor():
 
 
 class BaggingRegressor(sklearn.ensemble.BaggingRegressor):
+
     def predict_stddev(self, X):
         std = np.std([e.predict(X) for e in self.estimators_], axis=0, ddof=1)
         return std + 0.0000001
+
+
+class KNeighborsRegressor(sklearn.neighbors.KNeighborsRegressor):
+
+    def predict_stddev(self, X):
+        distances, indices = self.kneighbors(X, return_distance=True)
+
+        weight_param = self.get_params()["weights"]
+        if weight_param == "uniform":
+            weight = 1 / indices.shape[1]
+        elif weight_param == "distance":
+            weight = 1 / (distances + 0.0000001)
+            weight /= weight.sum(axis=1).reshape(-1, 1)
+        else:
+            raise Exception("Can't handle weighting param")
+
+        neighbor_y = self._y[indices]
+        means = (neighbor_y * weight).sum(axis=1)
+        return (((neighbor_y - means.reshape(-1, 1)) ** 2) * weight).sum(axis=1) ** 0.5
 
 
 class TorchRegressor(nn.Module):
