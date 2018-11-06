@@ -53,6 +53,9 @@ def load_bike():
     target = df["cnt"]
     del df["cnt"]
 
+    # The last weather situation has only 3 samples set. We can't use that.
+    del df["weathersit_4"]
+
     return df.values.astype(np.float32), target.values
 
 
