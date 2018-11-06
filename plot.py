@@ -12,10 +12,12 @@ if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-def plot_error_at_retrieval(abs_errors, stddevs, model_names, points=41):
+def plot_error_at_retrieval(abs_errors, stddevs, model_names, rmse, points=41):
+
+    error_name = "RMSE" if rmse else "MAE"
 
     plt.figure(figsize=(12, 9))
-    plt.title("MAE at retrieval")
+    plt.title("%s at retrieval" % error_name)
 
     for abs_error, stddev, model_name in zip(abs_errors, stddevs, model_names):
         stddev_space = np.linspace(stddev.min(), stddev.max(), points)
@@ -27,7 +29,12 @@ def plot_error_at_retrieval(abs_errors, stddevs, model_names, points=41):
         for point in retrieval_space:
             stddev_thresh = np.interp(point, retrieval, stddev_space)
             mask = stddev <= stddev_thresh
-            errors.append(0 if mask.sum() == 0 else abs_error[mask].mean())
+            if mask.sum() == 0:
+                error = 0
+            else:
+                error = abs_error[mask]
+                error = (error ** 2).mean() ** 0.5 if rmse else error.mean()
+            errors.append(error)
 
         # Don't plot zero retrievals
         mask = retrieval_space >= 0.1
@@ -36,11 +43,11 @@ def plot_error_at_retrieval(abs_errors, stddevs, model_names, points=41):
 
         plt.plot(retrieval_space, errors, label=model_name)
 
-    plt.ylabel("MAE")
+    plt.ylabel(error_name)
     plt.xlabel("Retrieval")
     plt.grid(alpha=0.5, linestyle=':')
     plt.legend()
-    plt.savefig(os.path.join(OUTPUT_DIR, "mae_at_retrieval.pdf"),
+    plt.savefig(os.path.join(OUTPUT_DIR, "%s_at_retrieval.pdf" % error_name),
                 bbox_inches='tight')
     plt.close()
 

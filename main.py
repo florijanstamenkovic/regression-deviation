@@ -112,18 +112,21 @@ def main():
         X_train = scaler.fit_transform(X_train)
         grid_search.fit(X_train, y_train)
 
-        prediction = grid_search.predict(scaler.transform(X_test))
+        mean = grid_search.predict(scaler.transform(X_test))
         stddev = grid_search.best_estimator_.predict_stddev(X_test)
+        log_pdf = models.log_norm_pdf(y_test, mean, stddev)
 
-        results.append((np.abs(prediction - y_test), stddev, model_name))
+        results.append((np.abs(mean - y_test), stddev, log_pdf, model_name))
 
-    for abs_error, stddev, model_name in results:
+    for abs_error, stddev, log_pdf, model_name in results:
         rmse = (abs_error ** 2).mean() ** 0.5
-        logging.info("Model: %s, MAE: %.2f, RMSE: %.2f",
-                     model_name, abs_error.mean(), rmse)
+        logging.info("Model: %s, MAE: %.2f, RMSE: %.2f, log_pdf: %.2f",
+                     model_name, abs_error.mean(), rmse, log_pdf.mean())
         plot.plot_stddev_error_scatter(abs_error, stddev, model_name)
 
-    plot.plot_error_at_retrieval(*zip(*results))
+    abs_error, stddev, log_pdf, model_name = zip(*results)
+    for rmse in [True, False]:
+        plot.plot_error_at_retrieval(abs_error, stddev, model_name, rmse)
 
 
 if __name__ == "__main__":

@@ -11,12 +11,10 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 
-def normpdf(mean, stddev, prediction, log):
-    var = stddev ** 2
-    denom = (2 * math.pi * var) ** 0.5
-    num = np.exp(-((mean - prediction) ** 2 / (2 * var)))
-    prob = num / denom
-    return np.log(prob + 0.000001) if log else prob
+def log_norm_pdf(truth, predicted_mean, predicted_stddev):
+    var = predicted_stddev ** 2
+    distance = (truth - predicted_mean) ** 2
+    return -0.5 * (np.log(2 * math.pi * var) + distance / var)
 
 
 class RegressionDeviationScorer():
@@ -25,13 +23,13 @@ class RegressionDeviationScorer():
         pass
 
     def __call__(self, estimator, X, y):
-        prediction = estimator.predict(X)
+        mean = estimator.predict(X)
         if isinstance(estimator, GridSearchCV):
             stddev = estimator.best_estimator_.predict_stddev(X)
         else:
             stddev = estimator.predict_stddev(X)
 
-        return normpdf(y, stddev, prediction, True).mean()
+        return log_norm_pdf(y, mean, stddev).mean()
 
 
 class DeviationRegressor():
