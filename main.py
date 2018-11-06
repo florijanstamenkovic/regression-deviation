@@ -116,15 +116,17 @@ def main():
         stddev = grid_search.best_estimator_.predict_stddev(X_test)
         log_pdf = models.log_norm_pdf(y_test, mean, stddev)
 
-        results.append((np.abs(mean - y_test), stddev, log_pdf, model_name))
+        results.append((np.abs(mean - y_test), stddev, log_pdf, model_name,
+                        grid_search.best_params_))
 
-    for abs_error, stddev, log_pdf, model_name in results:
+    for abs_error, stddev, log_pdf, model_name, best_params in results:
         rmse = (abs_error ** 2).mean() ** 0.5
         logging.info("Model: %s, MAE: %.2f, RMSE: %.2f, log_pdf: %.2f",
                      model_name, abs_error.mean(), rmse, log_pdf.mean())
+        logging.info("\tBest params: %r", best_params)
         plot.plot_stddev_error_scatter(abs_error, stddev, model_name)
 
-    abs_error, stddev, log_pdf, model_name = zip(*results)
+    abs_error, stddev, _, model_name, _ = zip(*results)
     for rmse in [True, False]:
         plot.plot_error_at_retrieval(abs_error, stddev, model_name, rmse)
 
