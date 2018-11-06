@@ -89,119 +89,38 @@ class TorchRegressor(nn.Module):
     def __init__(self, **params):
         super(TorchRegressor, self).__init__()
         self.set_params(**params)
-        self.mnb_size = 5000
-        self.epochs = 20
-
-    def init_params(self, X, y):
-        self.mean = nn.Linear(X.shape[1], 1)
-        self.stddev = nn.Linear(X.shape[1], 1)
-        self.optimizer_sgd = optim.SGD(self.parameters(), lr=0.05, momentum=0.1)
-        self.optimizer_lbfgs = optim.LBFGS(self.parameters(), lr=0.8)
-
-        if True:
-            r = sklearn.linear_model.Ridge(alpha=10)
-            r.fit(X, y)
-            self.mean.bias.data.fill_(float(r.intercept_))
-            self.mean.weight.data = torch.FloatTensor(r.coef_.reshape(1, -1))
-        else:
-            self.mean.bias.data.fill_(y.mean())
-            self.mean.weight.data.uniform_(-0.1, 0.1)
-
-        self.stddev.bias.data.fill_(y.std())
-        self.stddev.weight.data.uniform_(-0.1, 0.1)
 
     def forward_mean(self, x):
         return self.mean(x)
 
     def forward_std(self, x):
-        return torch.max(torch.tensor(0.001), self.stddev(x))
+        return torch.max(torch.tensor(0.000001), self.stddev(x))
 
-    def log_prob(self, x, mean, stddev):
-        return -((2 * math.pi * stddev).log() + ((x - mean) ** 2) / stddev) / 2
+    def log_prob(self, X, y):
+        mean = self.forward_mean(X)
+        stddev = self.forward_std(X)
+        return -((2 * math.pi * stddev).log() +
+                 ((y.reshape(-1, 1) - mean) ** 2) / stddev) / 2
 
-    def fit_lbfgs(self, X, y):
-        self.init_params(X, y)
+    def fit(self, X, y):
+        self.mean = nn.Linear(X.shape[1], 1)
+        self.stddev = nn.Linear(X.shape[1], 1)
+        optimizer = optim.LBFGS(self.parameters(), lr=1.0, max_iter=500)
+
         X = torch.FloatTensor(X)
         y = torch.FloatTensor(y)
 
         def closure():
-            self.optimizer_lbfgs.zero_grad()
-            mean = self.forward_mean(X)
-            stddev = self.forward_std(X)
-            abs_dist = (y - mean).abs()
-            log_prob = self.log_prob(y, mean, stddev)
-            loss = -log_prob.mean()
-            print('loss:', loss.item())
+            optimizer.zero_grad()
+            loss = -self.log_prob(X, y).mean()
+            loss += (self.mean.weight ** 2).mean() * 10
+            loss += (self.stddev.weight ** 2).mean() * 10
+            loss.backward()
             return loss
 
-        self.optimizer_lbfgs.step(closure)
-        return self
-
-
-    def fit_sgd(self, X, y):
-        self.init_params(X, y)
-
-        def batches():
-            inds = np.random.shuffle(np.arange(len(X)))
-
-            batch_count = (len(X) - 1) // self.mnb_size + 1
-            for batch_ind in range(batch_count):
-                start = self.mnb_size * batch_ind
-                end = start + self.mnb_size
-                yield (torch.FloatTensor(X[start:end]),
-                       torch.FloatTensor(y[start:end]))
-
-        def quantiles(t):
-            t = t.cpu().detach().numpy()
-            if t.ndim == 1 and len(t) == 1:
-                return "%.4f" % float(t)
-            return ", ".join("%.2f" % q for q in
-                             np.quantile(t, np.linspace(0, 1, 5)))
-
-        def param_quantiles(t):
-            return "%s, grad: %s" % (quantiles(t), quantiles(t.grad))
-
-        for epoch_ind in range(self.epochs):
-            epoch_losses = []
-            epoch_maes = []
-            for batch_ind, (X_mnb, y_mnb) in enumerate(batches()):
-                self.optimizer.zero_grad()
-                mean = self.forward_mean(X_mnb)
-                stddev = self.forward_std(X_mnb)
-                abs_dist = (y_mnb - mean).abs()
-                log_prob = self.log_prob(y_mnb, mean, stddev)
-                loss = -log_prob.mean()
-                epoch_losses.append(loss.item())
-                epoch_maes.append(abs_dist.mean().item())
-
-                loss.backward()
-                nn.utils.clip_grad_value_(self.parameters(), 1)
-                if batch_ind == 0:
-                    logging.debug("\tMean: %s", quantiles(mean))
-                    logging.debug("\tStddev: %s", quantiles(stddev))
-                    logging.debug("\tAbs-dist: %s", quantiles(abs_dist))
-                    logging.debug("\tLog-prob: %s", quantiles(log_prob))
-                    logging.debug("\tMean weight: %s",
-                                  param_quantiles(self.mean.weight))
-                    logging.debug("\tMean bias: %s",
-                                  param_quantiles(self.mean.bias))
-                    logging.debug("\tStddev weight: %s",
-                                  param_quantiles(self.stddev.weight))
-                    logging.debug("\tStddev bias: %s",
-                                  param_quantiles(self.stddev.bias))
-                self.optimizer.step()
-
-            logging.info(
-                "TorchRegressor epoch %d, MAE %.2f, mean loss %.5f, "
-                "first batch loss %.5f", epoch_ind, np.mean(epoch_maes),
-                np.mean(epoch_losses), epoch_losses[0])
-
-        return self
-
-    def fit(self, X, y):
-        self.fit_lbfgs(X, y)
+        optimizer.step(closure)
         error = np.abs((self.predict(X) - y)).mean()
-        print("train mae: ", error)
+        logging.info("Torch train MAE: %.2f", error)
         return self
 
     def set_params(self, **params):

@@ -20,13 +20,13 @@ import plot
 
 
 MODELS = (
-    (models.DeviationRegressor, "deviation_dummy", False,
+    (models.DeviationRegressor, "deviation_dummy",
      {
          "regression_cls": [sklearn.dummy.DummyRegressor],
          "reg_conf_split": [0.5],
          "stddev_cls": [sklearn.dummy.DummyRegressor],
      }),
-    (models.DeviationRegressor, "deviation_ridge", False,
+    (models.DeviationRegressor, "deviation_ridge",
      {
          "regression_cls": [Ridge],
          "regression__alpha": [0, 1, 10, 1000],
@@ -34,13 +34,13 @@ MODELS = (
          "stddev_cls": [Ridge],
          "stddev__alpha": [0, 1, 10, 1000],
      }),
-    (models.DeviationRegressor, "deviation_linear", False,
+    (models.DeviationRegressor, "deviation_linear",
      {
          "regression_cls": [LinearRegression],
          "reg_conf_split": [0.5, None],
          "stddev_cls": [LinearRegression],
      }),
-    (models.DeviationRegressor, "deviation_random_forest", False,
+    (models.DeviationRegressor, "deviation_random_forest",
      {
          "regression_cls": [RandomForestRegressor],
          "regression__n_estimators": [100],
@@ -48,9 +48,9 @@ MODELS = (
          "stddev_cls": [RandomForestRegressor],
          "stddev__n_estimators": [100],
      }),
-    (models.BaggingRegressor, "bagging", False,
+    (models.BaggingRegressor, "bagging",
      {"base_estimator": [None, Ridge(alpha=10)], "n_estimators": [100]}),
-    (models.TorchRegressor, "torch", True,
+    (models.TorchRegressor, "torch",
      {
      }),
 )
@@ -101,30 +101,20 @@ def main():
     # Results containing (abs_error, stddev, model_name)
     results = []
 
-    for model_cls, model_name, scale_target, params in used_models:
+    for model_cls, model_name, params in used_models:
         logging.info("Fitting model %s", model_name)
-
-        if scale_target:
-            y_mean = y_train.mean()
-            y_std = y_train.std()
-            y_train = (y_train - y_mean) / y_std
-            y_test = (y_test - y_mean) / y_std
 
         grid_search = GridSearchCV(
             model_cls(), params, cv=5, n_jobs=args.n_jobs,
             scoring=models.RegressionDeviationScorer(), iid=True)
 
-        # Transform the data
+        # Transform the input to zero-mean unit-var
         scaler = sklearn.preprocessing.StandardScaler()
         X_train = scaler.fit_transform(X_train)
         grid_search.fit(X_train, y_train)
 
         prediction = grid_search.predict(scaler.transform(X_test))
         stddev = grid_search.best_estimator_.predict_stddev(X_test)
-
-        if scale_target:
-            y_test = y_test * y_std + y_mean
-            prediction = prediction * y_std + y_mean
 
         results.append((np.abs(prediction - y_test), stddev, model_name))
 
