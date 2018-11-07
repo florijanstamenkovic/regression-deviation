@@ -123,6 +123,12 @@ class TorchRegressor(nn.Module):
     def fit(self, X, y):
         self.mean = nn.Linear(16, 1)
         self.stddev = nn.Linear(16, 1)
+        with torch.no_grad():
+            self.mean.weight.fill_(0)
+            self.mean.bias.fill_(y.mean())
+            self.stddev.weight.fill_(0)
+            self.stddev.bias.fill_(y.std())
+
         optimizer = optim.LBFGS(self.parameters(), max_iter=100)
 
         X = torch.FloatTensor(X)
@@ -131,12 +137,12 @@ class TorchRegressor(nn.Module):
         def closure():
             optimizer.zero_grad()
             loss = -self.log_prob(X, y).mean()
+            loss += (self.mean.weight ** 2).mean() * 0.0001
+            loss += (self.stddev.weight ** 2).mean() * 0.0001
             loss.backward()
             return loss
 
         optimizer.step(closure)
-        error = np.abs((self.predict(X) - y)).mean()
-        logging.info("Torch train MAE: %.2f", error)
         return self
 
     def set_params(self, **params):
