@@ -93,7 +93,7 @@ def main():
         X, y, test_size=args.test_size, random_state=2345)
 
     if args.model is None:
-        used_models = models.MODELS
+        used_models = MODELS
     else:
         used_models = [m for m in MODELS if m[1] in args.model]
 
