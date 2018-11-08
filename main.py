@@ -20,38 +20,33 @@ import plot
 
 
 MODELS = (
-    (models.DeviationRegressor, "deviation_dummy",
-     {
-         "regression_cls": [sklearn.dummy.DummyRegressor],
-         "reg_conf_split": [0.5],
-         "stddev_cls": [sklearn.dummy.DummyRegressor],
-     }),
-    (models.DeviationRegressor, "deviation_ridge",
-     {
-         "regression_cls": [Ridge],
-         "regression__alpha": [0, 1, 10, 1000],
-         "reg_conf_split": [0.5, None],
-         "stddev_cls": [Ridge],
-         "stddev__alpha": [0, 1, 10, 1000],
-     }),
-    (models.DeviationRegressor, "deviation_linear",
-     {
-         "regression_cls": [LinearRegression],
-         "reg_conf_split": [0.5, None],
-         "stddev_cls": [LinearRegression],
-     }),
-    (models.DeviationRegressor, "deviation_random_forest",
-     {
-         "regression_cls": [RandomForestRegressor],
-         "regression__n_estimators": [100],
-         "reg_conf_split": [0.5, None],
-         "stddev_cls": [RandomForestRegressor],
-         "stddev__n_estimators": [100],
-     }),
-    (models.BaggingRegressor, "bagging",
-     {"base_estimator": [None, Ridge(alpha=10)], "n_estimators": [100]}),
-    (models.TorchRegressor, "torch", {}),
-    (models.KNeighborsRegressor, "knn", {}),
+    (models.DeviationRegressor, "deviation_estimator", [
+        {
+            "regression_cls": [Ridge],
+            "regression__alpha": np.logspace(0, 4, 5),
+            "reg_conf_split": [0.5, None],
+        },
+        {
+            "regression_cls": [RandomForestRegressor],
+            "regression__n_estimators": [100, 300, 1000],
+            "reg_conf_split": [0.5, None],
+        },
+    ]),
+    (models.BaggingRegressor, "bagging", [
+        {"base_estimator": [None],
+         "n_estimators": [300, 1000, 3000]
+         },
+        {"base_estimator": [Ridge(a) for a in [1, 10, 100]],
+         "n_estimators": [100, 300, 1000]
+         },
+    ]),
+    (models.KNeighborsRegressor, "knn", {
+        "n_neighbors": [10, 20, 30],
+        "weights": ["uniform", "distance"],
+    }),
+    (models.LogDensityGradientRegressor, "log_density", {
+        "alpha": np.logspace(-10, -4, 7),
+    }),
 )
 
 
@@ -105,7 +100,7 @@ def main():
 
         grid_search = GridSearchCV(
             model_cls(), params, cv=5, n_jobs=args.n_jobs,
-            scoring=models.RegressionDeviationScorer(), iid=True)
+            scoring=models.LogNormPdfScorer(), iid=True)
 
         # Transform the input to zero-mean unit-var
         scaler = sklearn.preprocessing.StandardScaler()
