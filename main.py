@@ -45,7 +45,7 @@ MODELS = (
         "weights": ["uniform", "distance"],
     }),
     (models.LogDensityGradientRegressor, "log_density", {
-        "alpha": np.logspace(-10, -4, 7),
+        "alpha": np.logspace(-7, -4, 4),
     }),
 )
 
