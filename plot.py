@@ -17,7 +17,8 @@ def savefig(name):
     out_dir = "output"
     if not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
-    plt.savefig(os.path.join(out_dir, "%s.pdf" % name), bbox_inches='tight')
+    plt.savefig(os.path.join(out_dir, "%s.png" % name), bbox_inches='tight',
+                dpi=144)
 
 
 def plot_error_at_retrieval(abs_errors, stddevs, model_names, rmse, points=41):
@@ -68,7 +69,6 @@ def plot_stddev_error_scatter(abs_error, stddev, model_name):
     plt.grid(alpha=0.5, linestyle=':')
     savefig("std_scatter_%s" % model_name)
     plt.close()
-
 
 
 def plot_pdfs():
@@ -123,5 +123,71 @@ def plot_pdfs():
     plt.close()
 
 
+def plot_missing():
+    plt.figure(figsize=FIGSIZE)
+    X = np.random.uniform(size=(100, 2))
+    y = X[:, 0] + X.prod(axis=1)
+    plt.scatter(X[:, 0], y)
+    plt.grid(alpha=0.5, linestyle=':')
+    savefig("noise")
+    plt.close()
+
+
+def plot_sampling():
+    X = np.linspace(1, 6, 100)
+    X1 = np.random.normal(3.5, 0.9, 50)
+    X1 = X1[(X1 < 6) & (X1 > 1)]
+    X2 = np.random.uniform(1, 6.0, 50)
+
+    def calc_y(X, noise): return np.sin(X) ** 2 + X / 3 + \
+        noise * np.random.normal(0, 0.07, size=len(X))
+
+    plt.figure()
+    plt.plot(X, calc_y(X, 0), label="Function", color='g')
+    plt.scatter(X2, calc_y(X2, 1), label="Uniform sample", alpha=0.5)
+    plt.scatter(X1, calc_y(X1, 1), label="Normal sample", alpha=0.5)
+    plt.grid(alpha=0.5, linestyle=':')
+    plt.legend()
+    savefig("sampling")
+    plt.close()
+
+
+def plot_title():
+    def density(x, mean, std):
+        return np.exp(-((x - mean) ** 2) / (2 * std)) / \
+            (2 * math.pi * std) ** 0.5
+
+    plt.figure(figsize=(15, 3))
+    x_lim = (-0.2, 1.3)
+    x = np.linspace(x_lim[0], x_lim[1], 300)
+    N = 20
+    for i in range(N):
+        std = 0.0 + 1.5 ** (i + 1) / 1000
+        mean = 0 + 1.2 ** i / 20
+        middle = 8
+        if i < middle:
+            closeness = (i + 1) / (middle)
+        else:
+            closeness = ((N - i) / (N - middle + 1)) ** 4
+        plt.plot(x, density(x, mean, std),
+                 alpha=min(1, closeness ** 1.5),
+                 linewidth=(0.5 + 1 / (closeness + 0.01)),
+                 color="green")
+    plt.xlim(*x_lim)
+    plt.ylim(0.1, 4)
+    plt.grid()
+    plt.tick_params(
+        axis='both',
+        left=False,
+        bottom=False,
+        labelleft=False,
+        labelbottom=False)
+    savefig("title")
+    plt.close()
+
+
 if __name__ == "__main__":
     plot_pdfs()
+    plot_missing()
+    plot_sampling()
+    plot_title()
