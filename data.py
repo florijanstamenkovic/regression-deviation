@@ -14,10 +14,6 @@ from sklearn import datasets
 URL_BIKE= "http://archive.ics.uci.edu/ml/machine-learning-databases/00275/Bike-Sharing-Dataset.zip"
 FILENAME_BIKE = "hour.csv"
 
-URL_NEWS = "http://archive.ics.uci.edu/ml/machine-learning-databases/00332/OnlineNewsPopularity.zip"
-FILENAME_NEWS = "OnlineNewsPopularity.csv"
-
-
 def download_and_extract(url, source, target):
         logging.info("Downloading file from: %s", url)
         archive_filename, _ = urlretrieve(url)
@@ -57,22 +53,3 @@ def load_bike():
     del df["weathersit_4"]
 
     return df.values.astype(np.float32), target.values
-
-
-def load_news():
-    if not os.path.exists(FILENAME_NEWS):
-        download_and_extract(URL_NEWS,
-                             os.path.join("OnlineNewsPopularity", FILENAME_NEWS),
-                             FILENAME_NEWS)
-    df = pd.read_csv(FILENAME_NEWS, skipinitialspace=True)
-    df = df.drop(["url", "timedelta"], axis=1)
-
-    # Extract the target column.
-    target = df["shares"]
-    del df["shares"]
-
-    return df.values.astype(np.float32), target.values
-
-
-def load_boston():
-    return datasets.load_boston(True)

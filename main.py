@@ -60,9 +60,6 @@ def parse_args():
     argp.add_argument("--n-jobs", type=int, default=-1,
                       help="Number of jobs in cross validation. Default all "
                       "CPUs.")
-    argp.add_argument("--dataset", choices=["bike", "news", "boston"],
-                      default="bike",
-                      help="Which dataset to use")
     argp.add_argument("--limit-dataset", type=int, default=None,
                       help="If the dataset should be reduced for debugging.")
     argp.add_argument("--test-size", type=float, default=0.4,
@@ -75,14 +72,10 @@ def main():
 
     logging.basicConfig(level=args.logging)
 
-    X, y = getattr(data, "load_" + args.dataset)()
-
+    X, y = data.load_bike()
     if args.limit_dataset is not None:
         X = X[:args.limit_dataset]
         y = y[:args.limit_dataset]
-
-    logging.info("Using the '%s' dataset, %d rows, %d features",
-                 args.dataset, X.shape[0], X.shape[1])
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=args.test_size, random_state=2345)
